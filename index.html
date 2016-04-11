@@ -258,9 +258,9 @@
         this.saveData();
       },
       removeExam: function(examId) {
-        var exams = this.state.exams;
-        exams.sort(this.sortExamsById);
-        exams = exams.slice(0, examId).concat(exams.slice(examId+1, exams.length));
+        var exams = $.grep(this.state.exams, function(exam) {
+          exam.examId != examId;
+        });
 
         exams.sort(this.sortExamsByDateAsc);
         this.setState({exams: exams}, function() {
@@ -393,6 +393,7 @@
         return {exams: exams};
       },
       componentWillMount: function() {
+        // this.removeData();
         this.loadData();
         this.updateRevisionBounds();
       },

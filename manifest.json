@@ -1,13 +1,13 @@
 {
 	"manifest_version": 2,
-	"name": "Exams Countdown",
-	"description": "See how far off your exams are and distribute remaining revision days between them.",
+	"name": "Revision Scheduler and Countdown",
+	"description": "Countdown the days until your exams, and distribute your remaining days among each topic to get an idea of how long you really have.",
 	"version": "1.0",
 
 	"browser_action": {
 		"default_icon": "icon.png",
 		"default_popup": "index.html",
-		"default_title": "Exams Countdown"
+		"default_title": "Revision Scheduler and Countdown"
 	},
 
 	"permissions": [
