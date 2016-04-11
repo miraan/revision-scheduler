@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Exams Countdown</title>
+    <script src="react.js"></script>
+    <script src="react-dom.js"></script>
+    <script src="browser.js"></script>
+    <script src="jquery.min.js"></script>
+    <script src="marked.min.js"></script>
+    <style>
+      html {
+        min-width: 450px;
+        font-family: Arial;
+        font-size: 16px;
+      }
+      .examBox {
+        min-width: 440px;
+        float:left;
+        margin: 5px;
+        padding: 5px;
+        background-color: #b3ccff;
+      }
+      .examTitle {
+        min-width:50%;
+        float:left;
+        margin-bottom: 5px;
+      }
+      .examDate {
+        min-width:25%;
+        float:left;
+        margin-bottom:5px;
+      }
+      .timeLeft {
+        min-width:25%;
+        float:left;
+        margin-bottom:5px;
+      }
+      .slider {
+        min-width:50%;
+        float:left;
+      }
+      .revisionDays {
+        font-size: 10px
+        min-width:50%;
+        float:left;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="content"></div>
+    <script type="text/babel">
+
+    var getStringFromDate = function(date) {
+      var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Nov", "Dec"];
+      var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      return days[date.getDay()] + " " + date.getDate() + " " + months[date.getMonth()] + " " + date.getHours() + ":" + date.getMinutes();
+    };
+
+    var getDaysDifference = function(date) {
+      var _MS_PER_DAY = 1000 * 60 * 60 * 24;
+      var a = new Date();
+      var utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+      var utc2 = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+      return Math.floor((utc2 - utc1) / _MS_PER_DAY);
+    }
+
+    var getStringDaysDifference = function(date) {
+      var days = getDaysDifference(date);
+      var weeks = Math.floor(days / 7);
+      var remainder = days % 7;
+      var result = "";
+      if (weeks > 0) {
+        result += "" + weeks + " weeks, ";
+      }
+      result += "" + remainder + " days";
+      return result;
+    }
+
+    var ExamList = React.createClass({
+      render: function() {
+        var examNodes = $.map(this.props.exams, function(exam, examId) {
+          return (
+            <ExamBox
+              exam={exam}
+              changeRevisionDays={this.props.changeRevisionDays}
+              key={examId} />
+          );
+        }.bind(this));
+        return (
+          <div className="examList">
+            {examNodes}
+          </div>
+        );
+      }
+    });
+
+    var ExamBox = React.createClass({
+      sliderChange: function(event) {
+        var newValue = parseInt(event.target.value);
+        this.props.changeRevisionDays(this.props.exam.examId, newValue);
+      },
+      render: function() {
+        return (
+          <div className="examBox">
+            <div className="examTitle">
+              {this.props.exam.examTitle}
+            </div>
+            <div className="examDate">
+              {getStringFromDate(this.props.exam.examDate)}
+            </div>
+            <div className="timeLeft">
+              in {getStringDaysDifference(this.props.exam.examDate)}
+            </div>
+            <div className="slider">
+              <input type="range" min="0" max={this.props.exam.maxRevisionDays} value={this.props.exam.revisionDays} onChange={this.sliderChange} />
+            </div>
+            <div className="revisionDays">
+              {this.props.exam.revisionDays} revision days allocated ({this.props.exam.maxRevisionDays} max)
+            </div>
+          </div>
+        );
+      }
+    });
+
+    var Page = React.createClass({
+      changeRevisionDays: function(examId, revisionDays) {
+        var exams = this.state.exams.slice();
+        exams[examId].revisionDays = revisionDays;
+        this.setState({exams: exams});
+        this.updateRevisionBounds();
+        this.saveData();
+      },
+      updateRevisionBounds: function() {
+        var exams = this.state.exams.slice();
+        var sortByDateAsc = function(a, b) {
+          if (a.examDate.getTime() < b.examDate.getTime()) {
+            return -1;
+          } else if (a.examDate.getTime() > b.examDate.getTime()) {
+            return 1;
+          } else {
+            return 0;
+          }
+        }
+        var sortByDateDesc = function(a, b) {
+          if (a.examDate.getTime() < b.examDate.getTime()) {
+            return 1;
+          } else if (a.examDate.getTime() > b.examDate.getTime()) {
+            return -1;
+          } else {
+            return 0;
+          }
+        }
+        exams.sort(sortByDateAsc);
+        var calendar = [];
+        var calendar2 = [];
+        var lastDay = getDaysDifference(exams[exams.length - 1].examDate);
+        for (var i = 0; i <= lastDay; i++) {
+          calendar.push(false);
+          calendar2.push(false);
+        }
+        $.each(exams, function(index, exam) {
+          var day = getDaysDifference(exam.examDate);
+          calendar[day] = true;
+          calendar2[day] = true;
+        });
+        $.each(exams, function(index, exam) {
+          var day = 0;
+          var revisionDays = exam.revisionDays;
+          while (revisionDays > 0 && day < lastDay) {
+            while (calendar[day] && day < lastDay) day++;
+            if (day < lastDay) {
+              calendar[day] = true;
+              revisionDays--;
+            }
+          }
+          if (revisionDays > 0) {
+            console.log("Error: not all revision days could be allocated in calendar");
+          }
+        });
+        exams.sort(sortByDateDesc);
+        $.each(exams, function(index, exam) {
+          var day = getDaysDifference(exam.examDate) - 1;
+          var revisionDays = exam.revisionDays;
+          while (revisionDays > 0 && day >= 0) {
+            while (calendar2[day] && day >= 0) day--;
+            if (day >= 0) {
+              calendar2[day] = true;
+              revisionDays--;
+            }
+          }
+          if (revisionDays > 0) {
+            console.log("Error: not all revision days could be allocated in calendar2");
+          }
+        });
+        var maxFreeDaysBefore = function(day) {
+          var freeDays = 0;
+          var freeDays2 = 0;
+          for (var i = 0; i < day; i++) {
+            if (!calendar[i]) freeDays++;
+            if (!calendar2[i]) freeDays2++;
+          }
+          return Math.max(freeDays, freeDays2);
+        }
+        $.each(exams, function(index, exam) {
+          exam.maxRevisionDays = maxFreeDaysBefore(getDaysDifference(exam.examDate)) + exam.revisionDays;
+        });
+        exams.sort(sortByDateAsc);
+        this.setState({exams: exams});
+      },
+      saveData: function() {
+        var exams = $.map(this.state.exams, function(exam, index) {
+          var examCopy = {};
+          $.extend(examCopy, exam);
+          examCopy.examDate = exam.examDate.getTime();
+          return examCopy;
+        });
+        chrome.storage.sync.set({'exams': exams}, function() {
+          console.log('saved following exam data:');
+          console.log(exams);
+        }.bind(this));
+      },
+      loadData: function() {
+        chrome.storage.sync.get('exams', function(data) {
+          if (data.exams) {
+            console.log('retrieved exam data:');
+            console.log(data.exams);
+            var exams = data.exams;
+            $.each(exams, function(index, exam) {
+              exam.examDate = new Date(exam.examDate);
+            });
+            console.log('date populated exams: ' + exams);
+            this.setState({exams: exams});
+            console.log('loaded exams');
+          }
+        }.bind(this));
+      },
+      getInitialState: function() {
+        var exams = [
+            {examId: 0, examTitle: "Ethics", examDate: new Date(2016, 4, 26, 9, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 1, examTitle: "Knowledge Representation and Reasoning", examDate: new Date(2016, 4, 30, 14, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 2, examTitle: "Compilers", examDate: new Date(2016, 5, 2, 14, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 3, examTitle: "Philosophy of Religion", examDate: new Date(2016, 5, 4, 14, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 4, examTitle: "Philosophy of Mind", examDate: new Date(2016, 5, 9, 9, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 5, examTitle: "Lambda Calculus and Types", examDate: new Date(2016, 5, 11, 9, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 6, examTitle: "Computer Security", examDate: new Date(2016, 5, 13, 9, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 7, examTitle: "Intelligent Systems", examDate: new Date(2016, 5, 14, 9, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0},
+            {examId: 8, examTitle: "Concurrent Programming", examDate: new Date(2016, 5, 17, 9, 30, 0, 0), revisionDays: 0, maxRevisionDays: 0}
+        ];
+        return {exams: exams};
+      },
+      componentWillMount: function() {
+        // chrome.storage.sync.remove('exams', function() {
+        //   console.log('removed data');
+        // });
+        this.loadData();
+        this.updateRevisionBounds();
+      },
+      render: function() {
+        return (
+          <div className="page">
+            <ExamList exams={this.state.exams} changeRevisionDays={this.changeRevisionDays} />
+          </div>
+        );
+      }
+    });
+
+    ReactDOM.render(
+      <Page />,
+      document.getElementById('content')
+    );
+
+    </script>
+  </body>
+</html>
